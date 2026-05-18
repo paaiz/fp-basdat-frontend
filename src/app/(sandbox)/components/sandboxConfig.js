@@ -1,4 +1,4 @@
-export const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:3000/api";
+export const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
 
 export const SANDBOX_ROUTES = [
   { id: "home", label: "Beranda", href: "/sandbox" },
@@ -11,7 +11,7 @@ export const SANDBOX_ROUTES = [
 ];
 
 export const ALLOWED_DAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat"];
-export const UKT_STATUSES = ["belum dibayar", "lunas"];
+export const UKT_STATUSES = ["belum_dibayar", "lunas", "sebagian"];
 
 export function initialMahasiswa() {
   return { nama: "", nrp: "", jenis_kelamin: "L", tahun_masuk: "", status: "aktif" };
@@ -43,7 +43,7 @@ export function initialPresensi() {
 }
 
 export function initialTendik() {
-  return { nama: "", posisi: "" };
+  return { nama: "", jabatan: "" };
 }
 
 export function initialUkt() {
@@ -52,7 +52,7 @@ export function initialUkt() {
     semester: "",
     tahun_ajaran: "",
     nominal_tagihan: "",
-    status_pembayaran: "belum dibayar",
+    status_pembayaran: "belum_dibayar",
   };
 }
 
@@ -78,6 +78,18 @@ export async function postJson(path, body) {
     body: JSON.stringify(body),
   });
 
+  const text = await res.text();
+  const json = text ? JSON.parse(text) : null;
+
+  if (!res.ok) {
+    throw new Error(json?.error || json?.message || `Request gagal (${res.status})`);
+  }
+
+  return json;
+}
+
+export async function getJson(path) {
+  const res = await fetch(`${API_BASE}${path}`);
   const text = await res.text();
   const json = text ? JSON.parse(text) : null;
 

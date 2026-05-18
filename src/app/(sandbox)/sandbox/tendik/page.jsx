@@ -18,14 +18,14 @@ export default function TendikCreatePage() {
     e.preventDefault();
 
     const nama = sanitizeText(tendik.nama);
-    const posisi = sanitizeText(tendik.posisi);
+    const jabatan = sanitizeText(tendik.jabatan);
 
     if (!nama) return showToast("danger", "Validasi gagal", "Nama wajib diisi");
-    if (!posisi) return showToast("danger", "Validasi gagal", "Posisi wajib diisi");
+    if (!jabatan) return showToast("danger", "Validasi gagal", "Jabatan wajib diisi");
 
     setLoading(true);
     try {
-      const res = await postJson("/tendik", { nama, posisi });
+      const res = await postJson("/tendik", { nama, jabatan });
       showToast("success", "Tendik dibuat", res?.message || "Berhasil menambahkan tendik");
       setTendik(initialTendik());
     } catch (err) {
@@ -61,12 +61,12 @@ export default function TendikCreatePage() {
             />
           </Field>
 
-          <Field label="Posisi">
+          <Field label="Jabatan">
             <Textarea
-              value={tendik.posisi}
-              onChange={(e) => setTendik({ ...tendik, posisi: e.target.value })}
+              value={tendik.jabatan}
+              onChange={(e) => setTendik({ ...tendik, jabatan: e.target.value })}
               rows={3}
-              placeholder="Contoh: Administrasi Akademik"
+              placeholder="Contoh: admin, keuangan, dan sarpras."
             />
           </Field>
 

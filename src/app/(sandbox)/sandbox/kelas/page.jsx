@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Toast from "@/components/ui/Toast";
 import FormActions from "../../components/FormActions";
 import { Field, Input, Select } from "../../components/FormFields";
@@ -10,6 +10,7 @@ import useTimedToast from "../../components/useTimedToast";
 import {
   ALLOWED_DAYS,
   createScheduleRow,
+  getJson,
   initialKelas,
   parseInteger,
   postJson,
@@ -18,8 +19,41 @@ import {
 
 export default function KelasCreatePage() {
   const [kelas, setKelas] = useState(initialKelas());
+  const [dosenOptions, setDosenOptions] = useState([]);
+  const [loadingDosen, setLoadingDosen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast, showToast, setToast } = useTimedToast();
+
+  useEffect(() => {
+    let active = true;
+
+    const loadDosen = async () => {
+      setLoadingDosen(true);
+      try {
+        const res = await getJson("/dosen");
+        const list = Array.isArray(res?.data) ? res.data : [];
+
+        if (!active) return;
+        setDosenOptions(list);
+      } catch (err) {
+        if (active) {
+          showToast(
+            "danger",
+            "Gagal memuat dosen",
+            err?.message || "Terjadi kesalahan saat mengambil data dosen",
+          );
+        }
+      } finally {
+        if (active) setLoadingDosen(false);
+      }
+    };
+
+    loadDosen();
+
+    return () => {
+      active = false;
+    };
+  }, [showToast]);
 
   const updateKelasRow = (index, key, value) => {
     setKelas((prev) => ({
@@ -53,7 +87,7 @@ export default function KelasCreatePage() {
     if (!kodeKelas) return showToast("danger", "Validasi gagal", "Kode kelas wajib diisi");
     if (!namaKelas) return showToast("danger", "Validasi gagal", "Nama kelas wajib diisi");
     if (!Number.isInteger(idDosen) || idDosen <= 0)
-      return showToast("danger", "Validasi gagal", "ID dosen tidak valid");
+      return showToast("danger", "Validasi gagal", "Dosen belum dipilih atau tidak valid");
 
     const normalizedSchedule = kelas.schedule.map((row) => ({
       hari: sanitizeText(row.hari),
@@ -124,13 +158,27 @@ export default function KelasCreatePage() {
             </Field>
           </div>
 
-          <Field label="ID Dosen">
-            <Input
-              type="number"
+          <Field
+            label="Dosen"
+            hint={loadingDosen ? "Memuat data dosen..." : "Pilih dosen dari daftar"}
+          >
+            <Select
               value={kelas.id_dosen}
               onChange={(e) => setKelas({ ...kelas, id_dosen: e.target.value })}
-              placeholder="1"
-            />
+              disabled={loadingDosen}
+            >
+              <option value="">Pilih dosen</option>
+              {dosenOptions.map((item) => {
+                const id = item?.id ?? item?._id ?? "";
+                const label = [id, item?.nama].filter(Boolean).join(" - ");
+
+                return (
+                  <option key={String(id)} value={String(id)}>
+                    {label || String(id)}
+                  </option>
+                );
+              })}
+            </Select>
           </Field>
 
           <div className="space-y-3">

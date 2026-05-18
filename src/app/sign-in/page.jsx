@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Toast from "@/components/ui/Toast";
-import { setAuth } from "@/lib/auth";
+import { getAuth, setAuth } from "@/lib/auth";
 
 const API_BASE = "https://fp-basdat-backend.vercel.app/api";
 
@@ -15,10 +15,24 @@ export default function SignInPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
 
   const showToast = (variant, message, title) => {
     setToast({ variant, message, title });
   };
+
+  useEffect(() => {
+    const auth = getAuth();
+
+    if (auth?.id && auth?.role) {
+      const targetDashboard =
+        auth.role === "mahasiswa" ? "/dashboard/mahasiswa" : "/dashboard/dosen";
+      router.replace(targetDashboard);
+      return;
+    }
+
+    setCheckingAuth(false);
+  }, [router]);
 
   useEffect(() => {
     if (!toast) return;
@@ -75,6 +89,14 @@ export default function SignInPage() {
     }
   };
 
+  if (checkingAuth) {
+    return (
+      <div className="mx-auto flex min-h-80 max-w-md items-center justify-center rounded-lg bg-white text-slate-900">
+        <p className="text-sm text-slate-500">Mengecek sesi login...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-md rounded-lg bg-white text-slate-900">
       <div className="mb-4">
@@ -87,14 +109,12 @@ export default function SignInPage() {
         />
       </div>
 
-      <h1 className="mb-4 text-xl font-semibold">Sign In</h1>
-
       <div className="mb-4 flex gap-2" role="tablist" aria-label="Pilih peran">
         <button
           type="button"
           onClick={() => setRole("mahasiswa")}
           aria-pressed={role === "mahasiswa"}
-          className={`flex-1 rounded-lg px-3 py-2 font-medium transition ${
+          className={`flex-1 cursor-pointer rounded-lg px-3 py-2 font-medium transition ${
             role === "mahasiswa"
               ? "bg-linear-to-b from-blue-600 to-blue-700 text-white shadow-md"
               : "bg-slate-100 text-slate-700 hover:bg-slate-200"
@@ -106,7 +126,7 @@ export default function SignInPage() {
           type="button"
           onClick={() => setRole("dosen")}
           aria-pressed={role === "dosen"}
-          className={`flex-1 rounded-lg px-3 py-2 font-medium transition ${
+          className={`flex-1 cursor-pointer rounded-lg px-3 py-2 font-medium transition ${
             role === "dosen"
               ? "bg-linear-to-b from-blue-600 to-blue-700 text-white shadow-md"
               : "bg-slate-100 text-slate-700 hover:bg-slate-200"
@@ -148,7 +168,7 @@ export default function SignInPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-lg bg-blue-600 py-2.5 font-semibold text-white disabled:opacity-60"
+          className="w-full cursor-pointer rounded-lg bg-blue-600 py-2.5 font-semibold text-white disabled:opacity-60"
         >
           {loading ? "Masuk..." : "Masuk"}
         </button>

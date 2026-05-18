@@ -1,0 +1,223 @@
+"use client";
+
+import { useState } from "react";
+import Toast from "@/components/ui/Toast";
+import FormActions from "../../components/FormActions";
+import { Field, Input, Select } from "../../components/FormFields";
+import SectionCard from "../../components/SectionCard";
+import SandboxShell from "../../components/SandboxShell";
+import useTimedToast from "../../components/useTimedToast";
+import {
+  ALLOWED_DAYS,
+  createScheduleRow,
+  initialKelas,
+  parseInteger,
+  postJson,
+  sanitizeText,
+} from "../../components/sandboxConfig";
+
+export default function KelasCreatePage() {
+  const [kelas, setKelas] = useState(initialKelas());
+  const [loading, setLoading] = useState(false);
+  const { toast, showToast, setToast } = useTimedToast();
+
+  const updateKelasRow = (index, key, value) => {
+    setKelas((prev) => ({
+      ...prev,
+      schedule: prev.schedule.map((row, rowIndex) =>
+        rowIndex === index ? { ...row, [key]: value } : row,
+      ),
+    }));
+  };
+
+  const addKelasRow = () =>
+    setKelas((prev) => ({ ...prev, schedule: [...prev.schedule, createScheduleRow()] }));
+
+  const removeKelasRow = (index) => {
+    setKelas((prev) => ({
+      ...prev,
+      schedule:
+        prev.schedule.length > 1
+          ? prev.schedule.filter((_, rowIndex) => rowIndex !== index)
+          : prev.schedule,
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    const kodeKelas = sanitizeText(kelas.kode_kelas);
+    const namaKelas = sanitizeText(kelas.nama_kelas);
+    const idDosen = parseInteger(kelas.id_dosen);
+
+    if (!kodeKelas) return showToast("danger", "Validasi gagal", "Kode kelas wajib diisi");
+    if (!namaKelas) return showToast("danger", "Validasi gagal", "Nama kelas wajib diisi");
+    if (!Number.isInteger(idDosen) || idDosen <= 0)
+      return showToast("danger", "Validasi gagal", "ID dosen tidak valid");
+
+    const normalizedSchedule = kelas.schedule.map((row) => ({
+      hari: sanitizeText(row.hari),
+      jam_mulai: sanitizeText(row.jam_mulai),
+      jam_selesai: sanitizeText(row.jam_selesai),
+      ruangan: sanitizeText(row.ruangan),
+    }));
+
+    if (normalizedSchedule.some((row) => !ALLOWED_DAYS.includes(row.hari)))
+      return showToast("danger", "Validasi gagal", "Hari kelas tidak valid");
+    if (normalizedSchedule.some((row) => !row.jam_mulai || !row.jam_selesai || !row.ruangan)) {
+      return showToast("danger", "Validasi gagal", "Semua jadwal kelas harus diisi");
+    }
+
+    setLoading(true);
+    try {
+      const res = await postJson("/kelas", {
+        kode_kelas: kodeKelas,
+        nama_kelas: namaKelas,
+        id_dosen: idDosen,
+        hari: normalizedSchedule.map((row) => row.hari),
+        jam_mulai: normalizedSchedule.map((row) => row.jam_mulai),
+        jam_selesai: normalizedSchedule.map((row) => row.jam_selesai),
+        ruangan: normalizedSchedule.map((row) => row.ruangan),
+      });
+      showToast("success", "Kelas dibuat", res?.message || "Berhasil menambahkan kelas");
+      setKelas(initialKelas());
+    } catch (err) {
+      showToast("danger", "Gagal", err?.message || "Terjadi kesalahan");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <SandboxShell
+      activeId="kelas"
+      title="Modul Kelas"
+      description="Modul untuk endpoint /api/kelas."
+    >
+      <div className="mb-4">
+        <Toast
+          open={!!toast}
+          variant={toast?.variant}
+          title={toast?.title}
+          message={toast?.message}
+          onClose={() => setToast(null)}
+        />
+      </div>
+
+      <SectionCard title="Create Kelas" description="POST /api/kelas">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Kode Kelas">
+              <Input
+                value={kelas.kode_kelas}
+                onChange={(e) => setKelas({ ...kelas, kode_kelas: e.target.value })}
+                placeholder="IF-101"
+              />
+            </Field>
+
+            <Field label="Nama Kelas">
+              <Input
+                value={kelas.nama_kelas}
+                onChange={(e) => setKelas({ ...kelas, nama_kelas: e.target.value })}
+                placeholder="Basis Data"
+              />
+            </Field>
+          </div>
+
+          <Field label="ID Dosen">
+            <Input
+              type="number"
+              value={kelas.id_dosen}
+              onChange={(e) => setKelas({ ...kelas, id_dosen: e.target.value })}
+              placeholder="1"
+            />
+          </Field>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="font-semibold text-slate-800">Jadwal Kelas</h3>
+                <p className="text-sm text-slate-500">
+                  Setiap baris akan dikirim sebagai array ke API.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={addKelasRow}
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+              >
+                Tambah Jadwal
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {kelas.schedule.map((row, index) => (
+                <div
+                  key={`${index}-${row.hari}`}
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+                >
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-slate-700">Jadwal {index + 1}</span>
+                    <button
+                      type="button"
+                      onClick={() => removeKelasRow(index)}
+                      disabled={kelas.schedule.length === 1}
+                      className="rounded-md px-2 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Hapus
+                    </button>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-4">
+                    <Field label="Hari">
+                      <Select
+                        value={row.hari}
+                        onChange={(e) => updateKelasRow(index, "hari", e.target.value)}
+                      >
+                        {ALLOWED_DAYS.map((day) => (
+                          <option key={day} value={day}>
+                            {day}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+
+                    <Field label="Jam Mulai">
+                      <Input
+                        type="time"
+                        value={row.jam_mulai}
+                        onChange={(e) => updateKelasRow(index, "jam_mulai", e.target.value)}
+                      />
+                    </Field>
+
+                    <Field label="Jam Selesai">
+                      <Input
+                        type="time"
+                        value={row.jam_selesai}
+                        onChange={(e) => updateKelasRow(index, "jam_selesai", e.target.value)}
+                      />
+                    </Field>
+
+                    <Field label="Ruangan">
+                      <Input
+                        value={row.ruangan}
+                        onChange={(e) => updateKelasRow(index, "ruangan", e.target.value)}
+                        placeholder="Ruang 301"
+                      />
+                    </Field>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <FormActions
+            submitLabel="Buat Kelas"
+            loading={loading}
+            onReset={() => setKelas(initialKelas())}
+          />
+        </form>
+      </SectionCard>
+    </SandboxShell>
+  );
+}

@@ -78,6 +78,7 @@ export default function SignInPage() {
         role,
         id: matchedUser?.id ?? matchedUser?._id ?? null,
         name: matchedUser?.nama ?? "",
+        identifier: role === "mahasiswa" ? (matchedUser?.nrp ?? "") : (matchedUser?.nip ?? ""),
       });
 
       showToast("success", "Login berhasil", "Berhasil");

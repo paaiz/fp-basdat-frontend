@@ -1,4 +1,4 @@
-export const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
+export const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:3000/api";
 
 export const SANDBOX_ROUTES = [
   { id: "home", label: "Beranda", href: "/sandbox" },
@@ -31,6 +31,14 @@ export function initialKelas() {
     nama_kelas: "",
     id_dosen: "",
     schedule: [createScheduleRow()],
+  };
+}
+
+export function initialKelasEnroll() {
+  return {
+    id_mahasiswa: "",
+    id_kelas: "",
+    semester: "",
   };
 }
 
@@ -71,13 +79,8 @@ export function toIsoDateTime(value) {
   return Number.isNaN(date.getTime()) ? "" : date.toISOString();
 }
 
-export async function postJson(path, body) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-
+async function requestJson(path, options = {}) {
+  const res = await fetch(`${API_BASE}${path}`, options);
   const text = await res.text();
   const json = text ? JSON.parse(text) : null;
 
@@ -88,14 +91,28 @@ export async function postJson(path, body) {
   return json;
 }
 
+export async function postJson(path, body) {
+  return requestJson(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function putJson(path, body) {
+  return requestJson(path, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deleteJson(path) {
+  return requestJson(path, {
+    method: "DELETE",
+  });
+}
+
 export async function getJson(path) {
-  const res = await fetch(`${API_BASE}${path}`);
-  const text = await res.text();
-  const json = text ? JSON.parse(text) : null;
-
-  if (!res.ok) {
-    throw new Error(json?.error || json?.message || `Request gagal (${res.status})`);
-  }
-
-  return json;
+  return requestJson(path);
 }

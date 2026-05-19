@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Toast from "@/components/ui/Toast";
+import EntityTableCard from "../../components/EntityTableCard";
 import FormActions from "../../components/FormActions";
 import { Field, Input, Select } from "../../components/FormFields";
 import SectionCard from "../../components/SectionCard";
@@ -11,6 +12,7 @@ import {
   ALLOWED_DAYS,
   createScheduleRow,
   getJson,
+  initialKelasEnroll,
   initialKelas,
   parseInteger,
   postJson,
@@ -19,9 +21,15 @@ import {
 
 export default function KelasCreatePage() {
   const [kelas, setKelas] = useState(initialKelas());
+  const [enroll, setEnroll] = useState(initialKelasEnroll());
+  const [refreshKey, setRefreshKey] = useState(0);
   const [dosenOptions, setDosenOptions] = useState([]);
+  const [mahasiswaOptions, setMahasiswaOptions] = useState([]);
+  const [kelasOptions, setKelasOptions] = useState([]);
   const [loadingDosen, setLoadingDosen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingEnroll, setLoadingEnroll] = useState(false);
+  const [loadingReference, setLoadingReference] = useState(false);
   const { toast, showToast, setToast } = useTimedToast();
 
   useEffect(() => {
@@ -48,7 +56,32 @@ export default function KelasCreatePage() {
       }
     };
 
+    const loadReferences = async () => {
+      setLoadingReference(true);
+      try {
+        const [mahasiswaRes, kelasRes] = await Promise.all([
+          getJson("/mahasiswa"),
+          getJson("/kelas"),
+        ]);
+
+        if (!active) return;
+        setMahasiswaOptions(Array.isArray(mahasiswaRes?.data) ? mahasiswaRes.data : []);
+        setKelasOptions(Array.isArray(kelasRes?.data) ? kelasRes.data : []);
+      } catch (err) {
+        if (active) {
+          showToast(
+            "danger",
+            "Gagal memuat referensi",
+            err?.message || "Terjadi kesalahan saat mengambil data mahasiswa/kelas",
+          );
+        }
+      } finally {
+        if (active) setLoadingReference(false);
+      }
+    };
+
     loadDosen();
+    loadReferences();
 
     return () => {
       active = false;
@@ -115,10 +148,46 @@ export default function KelasCreatePage() {
       });
       showToast("success", "Kelas dibuat", res?.message || "Berhasil menambahkan kelas");
       setKelas(initialKelas());
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       showToast("danger", "Gagal", err?.message || "Terjadi kesalahan");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEnrollSubmit = async (e) => {
+    e.preventDefault();
+
+    const idMahasiswa = parseInteger(enroll.id_mahasiswa);
+    const idKelas = parseInteger(enroll.id_kelas);
+    const semester = parseInteger(enroll.semester);
+
+    if (!Number.isInteger(idMahasiswa) || idMahasiswa <= 0)
+      return showToast("danger", "Validasi gagal", "Mahasiswa belum dipilih atau tidak valid");
+    if (!Number.isInteger(idKelas) || idKelas <= 0)
+      return showToast("danger", "Validasi gagal", "Kelas belum dipilih atau tidak valid");
+    if (!Number.isInteger(semester) || semester <= 0)
+      return showToast("danger", "Validasi gagal", "Semester tidak valid");
+
+    setLoadingEnroll(true);
+    try {
+      const res = await postJson("/kelas/enroll", {
+        id_mahasiswa: idMahasiswa,
+        id_kelas: idKelas,
+        semester,
+      });
+      showToast(
+        "success",
+        "Enroll berhasil",
+        res?.message || "Mahasiswa berhasil didaftarkan ke kelas",
+      );
+      setEnroll(initialKelasEnroll());
+      setRefreshKey((prev) => prev + 1);
+    } catch (err) {
+      showToast("danger", "Gagal enroll", err?.message || "Terjadi kesalahan");
+    } finally {
+      setLoadingEnroll(false);
     }
   };
 
@@ -266,6 +335,107 @@ export default function KelasCreatePage() {
           />
         </form>
       </SectionCard>
+
+      <SectionCard title="Enroll Mahasiswa ke Kelas" description="POST /api/kelas/enroll">
+        <form onSubmit={handleEnrollSubmit} className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field
+              label="Mahasiswa"
+              hint={loadingReference ? "Memuat data mahasiswa..." : "Pilih mahasiswa dari daftar"}
+            >
+              <Select
+                value={enroll.id_mahasiswa}
+                onChange={(e) => setEnroll((prev) => ({ ...prev, id_mahasiswa: e.target.value }))}
+                disabled={loadingReference}
+              >
+                <option value="">Pilih mahasiswa</option>
+                {mahasiswaOptions.map((item) => {
+                  const id = item?.id ?? item?._id ?? "";
+                  const label = [item?.nrp, item?.nama].filter(Boolean).join(" - ");
+
+                  return (
+                    <option key={String(id)} value={String(id)}>
+                      {label || String(id)}
+                    </option>
+                  );
+                })}
+              </Select>
+            </Field>
+
+            <Field
+              label="Kelas"
+              hint={loadingReference ? "Memuat data kelas..." : "Pilih kelas yang akan diambil"}
+            >
+              <Select
+                value={enroll.id_kelas}
+                onChange={(e) => setEnroll((prev) => ({ ...prev, id_kelas: e.target.value }))}
+                disabled={loadingReference}
+              >
+                <option value="">Pilih kelas</option>
+                {kelasOptions.map((item) => {
+                  const id = item?.id ?? item?._id ?? "";
+                  const label = [item?.kode_kelas, item?.nama_kelas].filter(Boolean).join(" - ");
+
+                  return (
+                    <option key={String(id)} value={String(id)}>
+                      {label || String(id)}
+                    </option>
+                  );
+                })}
+              </Select>
+            </Field>
+          </div>
+
+          <Field label="Semester">
+            <Input
+              type="number"
+              value={enroll.semester}
+              onChange={(e) => setEnroll((prev) => ({ ...prev, semester: e.target.value }))}
+              placeholder="1"
+            />
+          </Field>
+
+          <FormActions
+            submitLabel="Enroll Mahasiswa"
+            loading={loadingEnroll}
+            onReset={() => setEnroll(initialKelasEnroll())}
+          />
+        </form>
+      </SectionCard>
+
+      <EntityTableCard
+        title="Data Kelas"
+        description="GET /api/kelas"
+        endpoint="/kelas"
+        refreshKey={refreshKey}
+        editFields={[
+          { key: "kode_kelas", label: "Kode Kelas", placeholder: "IF-101" },
+          { key: "nama_kelas", label: "Nama Kelas", placeholder: "Basis Data" },
+          {
+            key: "id_dosen",
+            label: "Dosen",
+            type: "select",
+            options: dosenOptions.map((item) => {
+              const id = item?.id ?? item?._id ?? "";
+              return {
+                value: String(id),
+                label: [id, item?.nama].filter(Boolean).join(" - ") || String(id),
+              };
+            }),
+          },
+        ]}
+        columns={[
+          { key: "id", label: "ID" },
+          { key: "kode_kelas", label: "Kode" },
+          { key: "nama_kelas", label: "Nama Kelas" },
+          { key: "id_dosen", label: "ID Dosen" },
+          { key: "hari", label: "Hari" },
+          { key: "jam_mulai", label: "Jam Mulai" },
+          { key: "jam_selesai", label: "Jam Selesai" },
+          { key: "ruangan", label: "Ruangan" },
+        ]}
+        emptyMessage="Belum ada data kelas."
+      />
     </SandboxShell>
   );
 }

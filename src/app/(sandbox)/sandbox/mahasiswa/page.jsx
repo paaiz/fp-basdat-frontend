@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Toast from "@/components/ui/Toast";
+import EntityTableCard from "../../components/EntityTableCard";
 import FormActions from "../../components/FormActions";
 import { Field, Input, Select } from "../../components/FormFields";
 import SectionCard from "../../components/SectionCard";
@@ -16,6 +17,7 @@ import {
 
 export default function MahasiswaCreatePage() {
   const [mahasiswa, setMahasiswa] = useState(initialMahasiswa());
+  const [refreshKey, setRefreshKey] = useState(0);
   const [loading, setLoading] = useState(false);
   const { toast, showToast, setToast } = useTimedToast();
 
@@ -46,6 +48,7 @@ export default function MahasiswaCreatePage() {
       });
       showToast("success", "Mahasiswa dibuat", res?.message || "Berhasil menambahkan mahasiswa");
       setMahasiswa(initialMahasiswa());
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       showToast("danger", "Gagal", err?.message || "Terjadi kesalahan");
     } finally {
@@ -126,6 +129,51 @@ export default function MahasiswaCreatePage() {
           />
         </form>
       </SectionCard>
+
+      <EntityTableCard
+        title="Data Mahasiswa"
+        description="GET /api/mahasiswa"
+        endpoint="/mahasiswa"
+        refreshKey={refreshKey}
+        editFields={[
+          { key: "nama", label: "Nama", placeholder: "Nama mahasiswa" },
+          { key: "nrp", label: "NRP", placeholder: "NRP" },
+          {
+            key: "jenis_kelamin",
+            label: "Jenis Kelamin",
+            type: "select",
+            options: [
+              { value: "L", label: "L" },
+              { value: "P", label: "P" },
+            ],
+          },
+          {
+            key: "tahun_masuk",
+            label: "Tahun Masuk",
+            type: "number",
+            placeholder: "2026",
+          },
+          {
+            key: "status",
+            label: "Status",
+            type: "select",
+            options: [
+              { value: "aktif", label: "aktif" },
+              { value: "lulus", label: "lulus" },
+              { value: "dropout", label: "dropout" },
+            ],
+          },
+        ]}
+        columns={[
+          { key: "id", label: "ID" },
+          { key: "nama", label: "Nama" },
+          { key: "nrp", label: "NRP" },
+          { key: "jenis_kelamin", label: "JK" },
+          { key: "tahun_masuk", label: "Tahun Masuk" },
+          { key: "status", label: "Status" },
+        ]}
+        emptyMessage="Belum ada data mahasiswa."
+      />
     </SandboxShell>
   );
 }

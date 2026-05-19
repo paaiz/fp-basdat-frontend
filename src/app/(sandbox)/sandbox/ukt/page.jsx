@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Toast from "@/components/ui/Toast";
+import EntityTableCard from "../../components/EntityTableCard";
 import FormActions from "../../components/FormActions";
 import { Field, Input, Select } from "../../components/FormFields";
 import SectionCard from "../../components/SectionCard";
@@ -17,6 +18,7 @@ import {
 
 export default function UktCreatePage() {
   const [ukt, setUkt] = useState(initialUkt());
+  const [refreshKey, setRefreshKey] = useState(0);
   const [loading, setLoading] = useState(false);
   const { toast, showToast, setToast } = useTimedToast();
 
@@ -49,6 +51,7 @@ export default function UktCreatePage() {
       });
       showToast("success", "Tagihan dibuat", res?.message || "Berhasil menambahkan UKT tagihan");
       setUkt(initialUkt());
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       showToast("danger", "Gagal", err?.message || "Terjadi kesalahan");
     } finally {
@@ -133,6 +136,39 @@ export default function UktCreatePage() {
           />
         </form>
       </SectionCard>
+
+      <EntityTableCard
+        title="Data UKT Tagihan"
+        description="GET /api/ukt"
+        endpoint="/ukt"
+        refreshKey={refreshKey}
+        editFields={[
+          { key: "id_mahasiswa", label: "ID Mahasiswa", type: "number", placeholder: "1" },
+          { key: "semester", label: "Semester", type: "number", placeholder: "1" },
+          { key: "tahun_ajaran", label: "Tahun Ajaran", placeholder: "2025/2026" },
+          {
+            key: "nominal_tagihan",
+            label: "Nominal Tagihan",
+            type: "number",
+            placeholder: "5000000",
+          },
+          {
+            key: "status_pembayaran",
+            label: "Status Pembayaran",
+            type: "select",
+            options: UKT_STATUSES.map((status) => ({ value: status, label: status })),
+          },
+        ]}
+        columns={[
+          { key: "id", label: "ID" },
+          { key: "id_mahasiswa", label: "ID Mahasiswa" },
+          { key: "semester", label: "Semester" },
+          { key: "tahun_ajaran", label: "Tahun Ajaran" },
+          { key: "nominal_tagihan", label: "Nominal" },
+          { key: "status_pembayaran", label: "Status" },
+        ]}
+        emptyMessage="Belum ada data UKT tagihan."
+      />
     </SandboxShell>
   );
 }

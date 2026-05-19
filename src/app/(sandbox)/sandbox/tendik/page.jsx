@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Toast from "@/components/ui/Toast";
+import EntityTableCard from "../../components/EntityTableCard";
 import FormActions from "../../components/FormActions";
 import { Field, Input, Textarea } from "../../components/FormFields";
 import SectionCard from "../../components/SectionCard";
@@ -11,6 +12,7 @@ import { initialTendik, postJson, sanitizeText } from "../../components/sandboxC
 
 export default function TendikCreatePage() {
   const [tendik, setTendik] = useState(initialTendik());
+  const [refreshKey, setRefreshKey] = useState(0);
   const [loading, setLoading] = useState(false);
   const { toast, showToast, setToast } = useTimedToast();
 
@@ -28,6 +30,7 @@ export default function TendikCreatePage() {
       const res = await postJson("/tendik", { nama, jabatan });
       showToast("success", "Tendik dibuat", res?.message || "Berhasil menambahkan tendik");
       setTendik(initialTendik());
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       showToast("danger", "Gagal", err?.message || "Terjadi kesalahan");
     } finally {
@@ -77,6 +80,29 @@ export default function TendikCreatePage() {
           />
         </form>
       </SectionCard>
+
+      <EntityTableCard
+        title="Data Tendik"
+        description="GET /api/tendik"
+        endpoint="/tendik"
+        refreshKey={refreshKey}
+        editFields={[
+          { key: "nama", label: "Nama", placeholder: "Nama tendik" },
+          {
+            key: "jabatan",
+            label: "Jabatan",
+            type: "textarea",
+            rows: 3,
+            placeholder: "Contoh: admin, keuangan, dan sarpras.",
+          },
+        ]}
+        columns={[
+          { key: "id", label: "ID" },
+          { key: "nama", label: "Nama" },
+          { key: "jabatan", label: "Jabatan" },
+        ]}
+        emptyMessage="Belum ada data tendik."
+      />
     </SandboxShell>
   );
 }

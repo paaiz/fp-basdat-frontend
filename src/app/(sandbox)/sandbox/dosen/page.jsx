@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Toast from "@/components/ui/Toast";
+import EntityTableCard from "../../components/EntityTableCard";
 import FormActions from "../../components/FormActions";
 import { Field, Input, Select } from "../../components/FormFields";
 import SectionCard from "../../components/SectionCard";
@@ -11,6 +12,7 @@ import { initialDosen, postJson, sanitizeText } from "../../components/sandboxCo
 
 export default function DosenCreatePage() {
   const [dosen, setDosen] = useState(initialDosen());
+  const [refreshKey, setRefreshKey] = useState(0);
   const [loading, setLoading] = useState(false);
   const { toast, showToast, setToast } = useTimedToast();
 
@@ -34,6 +36,7 @@ export default function DosenCreatePage() {
       });
       showToast("success", "Dosen dibuat", res?.message || "Berhasil menambahkan dosen");
       setDosen(initialDosen());
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       showToast("danger", "Gagal", err?.message || "Terjadi kesalahan");
     } finally {
@@ -92,6 +95,33 @@ export default function DosenCreatePage() {
           />
         </form>
       </SectionCard>
+
+      <EntityTableCard
+        title="Data Dosen"
+        description="GET /api/dosen"
+        endpoint="/dosen"
+        refreshKey={refreshKey}
+        editFields={[
+          { key: "nama", label: "Nama", placeholder: "Nama dosen" },
+          { key: "nip", label: "NIP", placeholder: "NIP" },
+          {
+            key: "jenis_kelamin",
+            label: "Jenis Kelamin",
+            type: "select",
+            options: [
+              { value: "L", label: "L" },
+              { value: "P", label: "P" },
+            ],
+          },
+        ]}
+        columns={[
+          { key: "id", label: "ID" },
+          { key: "nama", label: "Nama" },
+          { key: "nip", label: "NIP" },
+          { key: "jenis_kelamin", label: "JK" },
+        ]}
+        emptyMessage="Belum ada data dosen."
+      />
     </SandboxShell>
   );
 }

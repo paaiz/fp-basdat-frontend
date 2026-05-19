@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Toast from "@/components/ui/Toast";
+import EntityTableCard from "../../components/EntityTableCard";
 import FormActions from "../../components/FormActions";
 import { Field, Input } from "../../components/FormFields";
 import SectionCard from "../../components/SectionCard";
@@ -16,6 +17,7 @@ import {
 
 export default function PresensiCreatePage() {
   const [presensi, setPresensi] = useState(initialPresensi());
+  const [refreshKey, setRefreshKey] = useState(0);
   const [loading, setLoading] = useState(false);
   const { toast, showToast, setToast } = useTimedToast();
 
@@ -47,6 +49,7 @@ export default function PresensiCreatePage() {
         res?.message || "Berhasil menambahkan presensi session",
       );
       setPresensi(initialPresensi());
+      setRefreshKey((prev) => prev + 1);
     } catch (err) {
       showToast("danger", "Gagal", err?.message || "Terjadi kesalahan");
     } finally {
@@ -108,6 +111,25 @@ export default function PresensiCreatePage() {
           />
         </form>
       </SectionCard>
+
+      <EntityTableCard
+        title="Data Presensi"
+        description="GET /api/presensi"
+        endpoint="/presensi"
+        refreshKey={refreshKey}
+        editFields={[
+          { key: "id_kelas", label: "ID Kelas", type: "number", placeholder: "1" },
+          { key: "waktu_dibuka", label: "Waktu Dibuka", type: "datetime-local" },
+          { key: "waktu_ditutup", label: "Waktu Ditutup", type: "datetime-local" },
+        ]}
+        columns={[
+          { key: "id", label: "ID" },
+          { key: "id_kelas", label: "ID Kelas" },
+          { key: "waktu_dibuka", label: "Waktu Dibuka" },
+          { key: "waktu_ditutup", label: "Waktu Ditutup" },
+        ]}
+        emptyMessage="Belum ada data presensi."
+      />
     </SandboxShell>
   );
 }

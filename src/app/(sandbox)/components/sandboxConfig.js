@@ -42,6 +42,13 @@ export function initialKelasEnroll() {
   };
 }
 
+export function initialKelasDrop() {
+  return {
+    id_mahasiswa: "",
+    id_kelas: "",
+  };
+}
+
 export function initialPresensi() {
   return {
     id_kelas: "",
@@ -110,6 +117,14 @@ export async function putJson(path, body) {
 export async function deleteJson(path) {
   return requestJson(path, {
     method: "DELETE",
+  });
+}
+
+export async function deleteJsonWithBody(path, body) {
+  return requestJson(path, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });
 }
 

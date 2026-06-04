@@ -13,8 +13,10 @@ import {
   createScheduleRow,
   getJson,
   initialKelasEnroll,
+  initialKelasDrop,
   initialKelas,
   parseInteger,
+  deleteJsonWithBody,
   postJson,
   sanitizeText,
 } from "../../components/sandboxConfig";
@@ -22,6 +24,7 @@ import {
 export default function KelasCreatePage() {
   const [kelas, setKelas] = useState(initialKelas());
   const [enroll, setEnroll] = useState(initialKelasEnroll());
+  const [drop, setDrop] = useState(initialKelasDrop());
   const [refreshKey, setRefreshKey] = useState(0);
   const [dosenOptions, setDosenOptions] = useState([]);
   const [mahasiswaOptions, setMahasiswaOptions] = useState([]);
@@ -29,6 +32,7 @@ export default function KelasCreatePage() {
   const [loadingDosen, setLoadingDosen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingEnroll, setLoadingEnroll] = useState(false);
+  const [loadingDrop, setLoadingDrop] = useState(false);
   const [loadingReference, setLoadingReference] = useState(false);
   const { toast, showToast, setToast } = useTimedToast();
 
@@ -185,9 +189,41 @@ export default function KelasCreatePage() {
       setEnroll(initialKelasEnroll());
       setRefreshKey((prev) => prev + 1);
     } catch (err) {
+      console.log(err);
       showToast("danger", "Gagal enroll", err?.message || "Terjadi kesalahan");
     } finally {
       setLoadingEnroll(false);
+    }
+  };
+
+  const handleDropSubmit = async (e) => {
+    e.preventDefault();
+
+    const idMahasiswa = parseInteger(drop.id_mahasiswa);
+    const idKelas = parseInteger(drop.id_kelas);
+
+    if (!Number.isInteger(idMahasiswa) || idMahasiswa <= 0)
+      return showToast("danger", "Validasi gagal", "Mahasiswa belum dipilih atau tidak valid");
+    if (!Number.isInteger(idKelas) || idKelas <= 0)
+      return showToast("danger", "Validasi gagal", "Kelas belum dipilih atau tidak valid");
+
+    setLoadingDrop(true);
+    try {
+      const res = await deleteJsonWithBody("/kelas/drop", {
+        id_mahasiswa: idMahasiswa,
+        id_kelas: idKelas,
+      });
+      showToast(
+        "success",
+        "Drop berhasil",
+        res?.message || "Mahasiswa berhasil dikeluarkan dari kelas",
+      );
+      setDrop(initialKelasDrop());
+      setRefreshKey((prev) => prev + 1);
+    } catch (err) {
+      showToast("danger", "Gagal drop", err?.message || "Terjadi kesalahan");
+    } finally {
+      setLoadingDrop(false);
     }
   };
 
@@ -399,6 +435,64 @@ export default function KelasCreatePage() {
             submitLabel="Enroll Mahasiswa"
             loading={loadingEnroll}
             onReset={() => setEnroll(initialKelasEnroll())}
+          />
+        </form>
+      </SectionCard>
+
+      <SectionCard title="Drop Mahasiswa dari Kelas" description="DELETE /api/kelas/drop">
+        <form onSubmit={handleDropSubmit} className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field
+              label="Mahasiswa"
+              hint={loadingReference ? "Memuat data mahasiswa..." : "Pilih mahasiswa dari daftar"}
+            >
+              <Select
+                value={drop.id_mahasiswa}
+                onChange={(e) => setDrop((prev) => ({ ...prev, id_mahasiswa: e.target.value }))}
+                disabled={loadingReference}
+              >
+                <option value="">Pilih mahasiswa</option>
+                {mahasiswaOptions.map((item) => {
+                  const id = item?.id ?? item?._id ?? "";
+                  const label = [item?.nrp, item?.nama].filter(Boolean).join(" - ");
+
+                  return (
+                    <option key={String(id)} value={String(id)}>
+                      {label || String(id)}
+                    </option>
+                  );
+                })}
+              </Select>
+            </Field>
+
+            <Field
+              label="Kelas"
+              hint={loadingReference ? "Memuat data kelas..." : "Pilih kelas yang akan dikeluarkan"}
+            >
+              <Select
+                value={drop.id_kelas}
+                onChange={(e) => setDrop((prev) => ({ ...prev, id_kelas: e.target.value }))}
+                disabled={loadingReference}
+              >
+                <option value="">Pilih kelas</option>
+                {kelasOptions.map((item) => {
+                  const id = item?.id ?? item?._id ?? "";
+                  const label = [item?.kode_kelas, item?.nama_kelas].filter(Boolean).join(" - ");
+
+                  return (
+                    <option key={String(id)} value={String(id)}>
+                      {label || String(id)}
+                    </option>
+                  );
+                })}
+              </Select>
+            </Field>
+          </div>
+
+          <FormActions
+            submitLabel="Drop Mahasiswa"
+            loading={loadingDrop}
+            onReset={() => setDrop(initialKelasDrop())}
           />
         </form>
       </SectionCard>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+
 import {
   HiOutlineBanknotes,
   HiOutlineCalendarDays,
@@ -8,81 +9,24 @@ import {
   HiOutlineMapPin,
   HiOutlineUser,
 } from "react-icons/hi2";
+
+import {
+  extractDayTokens,
+  normalizeDayLabel,
+  normalizeRoomText,
+  normalizeTimeText,
+  parseJsonArrayText,
+  WEEK_DAYS,
+} from "@/lib/util";
+
 import { getAuth } from "@/lib/auth";
-import { asItem, asList, getJson } from "../../components/dashboardApi";
-import { SectionHeader } from "../../components/DashboardCard";
-import { safeText, toShortName } from "../../components/dashboardFormat";
-import MahasiswaAttendanceTab from "../../components/KehadiranMahasiswa/MahasiswaAttendanceTab";
-import MahasiswaFinanceTab from "../../components/KeuanganMahasiswa/MahasiswaFinanceTab";
 
-const WEEK_DAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat" /* "Sabtu", "Minggu" */];
-const ACTIVE_DAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat"];
+import { SectionHeader } from "@/app/(dashboard)/components/DashboardCard";
+import { asItem, asList, getJson } from "@/app/(dashboard)/components/dashboardApi";
+import { safeText, toShortName } from "@/app/(dashboard)/components/dashboardFormat";
 
-const DAY_CANONICAL = {
-  senin: "Senin",
-  selasa: "Selasa",
-  rabu: "Rabu",
-  kamis: "Kamis",
-  jumat: "Jumat",
-  // sabtu: "Sabtu",
-  // minggu: "Minggu",
-};
-
-function parseJsonArrayText(value) {
-  if (Array.isArray(value)) return value;
-
-  const raw = String(value ?? "").trim();
-  if (!raw) return [];
-
-  if (!(raw.startsWith("[") && raw.endsWith("]"))) {
-    return [raw];
-  }
-
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [raw];
-  } catch {
-    return [raw];
-  }
-}
-
-function normalizeDayLabel(value) {
-  const key = String(value ?? "")
-    .trim()
-    .toLowerCase();
-  return DAY_CANONICAL[key] || safeText(value, "Senin");
-}
-
-function extractDayTokens(value) {
-  const normalizedArray = parseJsonArrayText(value);
-  if (normalizedArray.length > 1) {
-    return normalizedArray.map((item) => normalizeDayLabel(item));
-  }
-
-  const raw = String(normalizedArray[0] ?? value ?? "").trim();
-  if (!raw) return [];
-
-  return raw
-    .split(/[,&/]|\band\b|\bdan\b/gi)
-    .map((token) => token.trim())
-    .filter(Boolean)
-    .map((token) => normalizeDayLabel(token));
-}
-
-function normalizeTimeText(start, end, fallback) {
-  const s = String(start ?? "").trim();
-  const e = String(end ?? "").trim();
-
-  if (s || e) {
-    return [s, e].filter(Boolean).join(" - ");
-  }
-
-  return safeText(fallback, "");
-}
-
-function normalizeRoomText(primary, fallback) {
-  return safeText(primary || fallback, "Ruangan belum diatur");
-}
+import MahasiswaAttendanceTab from "@/app/(dashboard)/components/KehadiranMahasiswa/MahasiswaAttendanceTab";
+import MahasiswaFinanceTab from "@/app/(dashboard)/components/KeuanganMahasiswa/MahasiswaFinanceTab";
 
 function resolveLecturerName(classItem, dosenMap) {
   const directName = classItem?.nama_dosen || classItem?.dosen?.nama;
@@ -205,7 +149,7 @@ export default function MahasiswaDashboardPage() {
 
     const today = WEEK_DAYS[new Date().getDay() - 1] || "Senin";
     setTodayDay(today);
-    setActiveDay(ACTIVE_DAYS.includes(today) ? today : "Senin");
+    setActiveDay(WEEK_DAYS.includes(today) ? today : "Senin");
 
     let active = true;
 
@@ -388,7 +332,7 @@ export default function MahasiswaDashboardPage() {
           <div className="flex flex-wrap gap-2">
             {WEEK_DAYS.map((day) => {
               const active = activeDay === day;
-              const isPrimaryDay = ACTIVE_DAYS.includes(day);
+              const isPrimaryDay = WEEK_DAYS.includes(day);
 
               return (
                 <button

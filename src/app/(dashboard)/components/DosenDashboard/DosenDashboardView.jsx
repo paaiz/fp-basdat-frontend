@@ -1,10 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
-import { BiSolidExit } from "react-icons/bi";
+
 import {
   HiOutlineBookOpen,
-  HiOutlineCalendarDays,
   HiOutlineCheckCircle,
   HiOutlineClock,
   HiOutlineMagnifyingGlass,
@@ -13,73 +12,23 @@ import {
   HiOutlineUsers,
   HiOutlineXCircle,
 } from "react-icons/hi2";
-import { DashboardCard, MetricCard, SectionHeader } from "../DashboardCard";
-import { safeText } from "../dashboardFormat";
 
-const WEEK_DAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat"];
-const DAY_CANONICAL = {
-  senin: "Senin",
-  selasa: "Selasa",
-  rabu: "Rabu",
-  kamis: "Kamis",
-  jumat: "Jumat",
-};
+import {
+  DashboardCard,
+  MetricCard,
+  SectionHeader,
+} from "@/app/(dashboard)/components/DashboardCard";
 
-function parseJsonArrayText(value) {
-  if (Array.isArray(value)) return value;
+import { safeText } from "@/app/(dashboard)/components/dashboardFormat";
 
-  const raw = String(value ?? "").trim();
-  if (!raw) return [];
-
-  if (!(raw.startsWith("[") && raw.endsWith("]"))) {
-    return [raw];
-  }
-
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [raw];
-  } catch {
-    return [raw];
-  }
-}
-
-function normalizeDayLabel(value) {
-  const key = String(value ?? "")
-    .trim()
-    .toLowerCase();
-  return DAY_CANONICAL[key] || safeText(value, "Senin");
-}
-
-function extractDayTokens(value) {
-  const normalizedArray = parseJsonArrayText(value);
-  if (normalizedArray.length > 1) {
-    return normalizedArray.map((item) => normalizeDayLabel(item));
-  }
-
-  const raw = String(normalizedArray[0] ?? value ?? "").trim();
-  if (!raw) return [];
-
-  return raw
-    .split(/[,&/]|\band\b|\bdan\b/gi)
-    .map((token) => token.trim())
-    .filter(Boolean)
-    .map((token) => normalizeDayLabel(token));
-}
-
-function normalizeTimeText(start, end, fallback) {
-  const s = String(start ?? "").trim();
-  const e = String(end ?? "").trim();
-
-  if (s || e) {
-    return [s, e].filter(Boolean).join(" - ");
-  }
-
-  return safeText(fallback, "Waktu belum diatur");
-}
-
-function normalizeRoomText(primary, fallback) {
-  return safeText(primary || fallback, "Ruangan belum diatur");
-}
+import {
+  extractDayTokens,
+  normalizeDayLabel,
+  normalizeRoomText,
+  parseJsonArrayText,
+  normalizeTimeText,
+  WEEK_DAYS,
+} from "@/lib/util";
 
 function getClassId(item, index = 0) {
   return String(item?.id ?? item?._id ?? `class-${index}`);

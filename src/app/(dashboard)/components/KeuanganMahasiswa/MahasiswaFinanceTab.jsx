@@ -1,56 +1,82 @@
 "use client";
 
-import { DashboardCard, MetricCard } from "../DashboardCard";
+import { DashboardCard } from "../DashboardCard";
 import { formatCurrency, formatDateTime, safeText } from "../dashboardFormat";
+import { HiOutlineCheckCircle, HiOutlineXCircle, HiOutlineClock } from "react-icons/hi";
 
 export default function MahasiswaFinanceTab({ loading, uktHistory }) {
   const latestUkt = uktHistory[0];
-  const unpaidCount = uktHistory.filter((item) => item?.status_pembayaran !== "lunas").length;
+
+  const resolvePaidAmount = (item) => {
+    const nominal = Number(item?.nominal_tagihan ?? 0);
+    const rawPaid = Number(item?.nominal_dibayar ?? item?.dibayar);
+    const status = String(item?.status_pembayaran ?? "").toLowerCase();
+
+    if (status === "lunas") {
+      return Number.isFinite(rawPaid) && rawPaid > 0 ? rawPaid : nominal;
+    }
+
+    return Number.isFinite(rawPaid) && rawPaid >= 0 ? rawPaid : 0;
+  };
+
+  const totalTagihan = uktHistory.reduce(
+    (sum, item) => sum + Number(item?.nominal_tagihan ?? 0),
+    0,
+  );
+  const totalDibayar = uktHistory.reduce((sum, item) => sum + resolvePaidAmount(item), 0);
   const totalOutstanding = uktHistory.reduce((sum, item) => {
-    if (item?.status_pembayaran === "lunas") return sum;
-    const amount = Number(item?.nominal_tagihan ?? 0);
-    return Number.isFinite(amount) ? sum + amount : sum;
+    const nominal = Number(item?.nominal_tagihan ?? 0);
+    const paid = resolvePaidAmount(item);
+    const status = String(item?.status_pembayaran ?? "").toLowerCase();
+
+    if (status === "lunas") return sum;
+
+    if (status === "sebagian") {
+      const remaining = Math.max(0, nominal - paid);
+      return sum + remaining;
+    }
+
+    return sum + nominal;
   }, 0);
 
-  const financeCards = [
-    {
-      label: "Total Tagihan",
-      value: formatCurrency(
-        uktHistory.reduce((sum, item) => sum + Number(item?.nominal_tagihan ?? 0), 0),
-      ),
-      hint: "Akumulasi semua tagihan yang tercatat.",
-      tone: "blue",
-    },
-    {
-      label: "Belum Lunas",
-      value: unpaidCount,
-      hint: formatCurrency(totalOutstanding),
-      tone: "amber",
-    },
-    {
-      label: "Status Terbaru",
-      value: safeText(latestUkt?.status_pembayaran || "belum_dibayar"),
-      hint: latestUkt ? `Semester ${safeText(latestUkt?.semester)}` : "Tidak ada tagihan.",
-      tone: "emerald",
-    },
-  ];
-
   return (
-    <div className="grid gap-6 xl:grid-cols-[0.96fr_1.04fr]">
+    <div className="flex flex-col gap-6">
       <div className="grid gap-4">
-        {financeCards.map((item) => (
-          <MetricCard
-            key={item.label}
-            label={item.label}
-            value={loading ? "..." : item.value}
-            hint={item.hint}
-            tone={item.tone}
-          />
-        ))}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="min-w-0 rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
+            <p className="text-sm font-medium text-slate-500">Total Tagihan</p>
+            <p className="mt-2 wrap-break-word text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
+              {loading ? "..." : formatCurrency(totalTagihan)}
+            </p>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              Akumulasi semua tagihan yang tercatat.
+            </p>
+          </div>
+
+          <div className="min-w-0 rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
+            <p className="text-sm font-medium text-slate-500">Total Dibayar</p>
+            <p className="mt-2 wrap-break-word text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
+              {loading ? "..." : formatCurrency(totalDibayar)}
+            </p>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              Jumlah pembayaran yang sudah masuk.
+            </p>
+          </div>
+
+          <div className="min-w-0 rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
+            <p className="text-sm font-medium text-slate-500">Sisa Tagihan</p>
+            <p className="mt-2 wrap-break-word text-2xl font-semibold tracking-tight text-[#e7000b] sm:text-3xl">
+              {loading ? "..." : formatCurrency(totalOutstanding)}
+            </p>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              Total tunggakan yang harus dilunasi.
+            </p>
+          </div>
+        </div>
       </div>
 
       <DashboardCard
-        title="Histori UKT"
+        title="Riwayat Pembayaran UKT"
         subtitle="Tagihan semester dan status pembayaran mahasiswa."
         action={<div className="text-sm font-medium text-[#6a7282]">{uktHistory.length} data</div>}
       >
@@ -61,51 +87,61 @@ export default function MahasiswaFinanceTab({ loading, uktHistory }) {
               <div className="h-20 animate-pulse rounded-[10px] bg-slate-100" />
             </>
           ) : uktHistory.length ? (
-            uktHistory.slice(0, 4).map((item) => (
+            uktHistory.map((item) => (
               <div
                 key={String(item?.id ?? item?._id ?? `${item?.semester}-${item?.tahun_ajaran}`)}
-                className="rounded-[10px] border border-slate-200 bg-[#eff6ff] p-4"
+                className="border border-[#e5e7eb] rounded-[10px] bg-white p-4 flex items-start justify-between"
               >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[16px] font-medium text-[#101828]">
-                      Semester {safeText(item?.semester)}
-                    </p>
-                    <p className="mt-1 text-[14px] text-[#6a7282]">
-                      {safeText(item?.tahun_ajaran)}
-                    </p>
+                <div className="flex-1">
+                  <p className="text-[16px] font-medium text-[#101828]">
+                    Semester {safeText(item?.semester)} ({safeText(item?.tahun_ajaran)})
+                  </p>
+                  <div className="mt-2 text-[14px] text-[#4a5565] flex flex-wrap gap-6">
+                    <span>Nominal: {formatCurrency(item?.nominal_tagihan)}</span>
+                    <span>Dibayar: {formatCurrency(resolvePaidAmount(item))}</span>
+                    {/* <span>
+                      Tanggal:{" "}
+                      {item?.tanggal ||
+                        item?.tanggal_pembayaran ||
+                        formatDateTime(item?.updated_at || item?.created_at) ||
+                        "-"}
+                    </span> */}
                   </div>
-                  <span
-                    className={`rounded-[33554400px] px-3 py-1 text-[12px] font-medium ${item?.status_pembayaran === "lunas" ? "bg-[#dcfce7] text-[#008236]" : item?.status_pembayaran === "sebagian" ? "bg-[#fef9c2] text-[#a65f00]" : "bg-[#ffe2e2] text-[#c10007]"}`}
-                  >
-                    {safeText(item?.status_pembayaran)}
-                  </span>
                 </div>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <p className="text-[12px] uppercase tracking-[0.18em] text-[#6a7282]">
-                      Nominal
-                    </p>
-                    <p className="mt-1 text-[16px] font-medium text-[#101828]">
-                      {formatCurrency(item?.nominal_tagihan)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[12px] uppercase tracking-[0.18em] text-[#6a7282]">
-                      Terakhir Update
-                    </p>
-                    <p className="mt-1 text-[16px] font-medium text-[#101828]">
-                      {formatDateTime(item?.updated_at || item?.created_at)}
-                    </p>
-                  </div>
+
+                <div className="ml-4 shrink-0">
+                  {item?.status_pembayaran === "lunas" ? (
+                    <div className="bg-[#dcfce7] rounded-[10px] px-4 py-2 flex items-center gap-2 text-[#008236]">
+                      <HiOutlineCheckCircle className="h-5 w-5" />
+                      <span className="font-medium">Lunas</span>
+                    </div>
+                  ) : item?.status_pembayaran === "sebagian" ? (
+                    <div className="bg-[#fef9c2] rounded-[10px] px-4 py-2 flex items-center gap-2 text-[#a65f00]">
+                      <HiOutlineClock className="h-5 w-5" />
+                      <span className="font-medium">Sebagian</span>
+                    </div>
+                  ) : (
+                    <div className="bg-[#ffe2e2] rounded-[10px] px-4 py-2 flex items-center gap-2 text-[#c10007]">
+                      <HiOutlineXCircle className="h-5 w-5" />
+                      <span className="font-medium">Belum Lunas</span>
+                    </div>
+                  )}
                 </div>
               </div>
             ))
           ) : (
             <div className="rounded-[10px] border border-dashed border-slate-200 bg-slate-50 px-5 py-6 text-sm text-slate-500">
-              Histori UKT belum tersedia.
+              Riwayat pembayaran UKT belum tersedia.
             </div>
           )}
+
+          {!loading && totalOutstanding > 0 ? (
+            <div className="bg-[#fef2f2] border border-[#ffc9c9] rounded-[10px] px-4 py-3 text-sm text-[#9f0712]">
+              <strong>Perhatian:</strong> Anda memiliki tunggakan UKT sebesar{" "}
+              {formatCurrency(totalOutstanding)}. Segera lakukan pembayaran untuk menghindari sanksi
+              akademik.
+            </div>
+          ) : null}
         </div>
       </DashboardCard>
     </div>

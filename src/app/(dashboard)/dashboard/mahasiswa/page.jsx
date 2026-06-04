@@ -15,7 +15,7 @@ import { safeText, toShortName } from "../../components/dashboardFormat";
 import MahasiswaAttendanceTab from "../../components/KehadiranMahasiswa/MahasiswaAttendanceTab";
 import MahasiswaFinanceTab from "../../components/KeuanganMahasiswa/MahasiswaFinanceTab";
 
-const WEEK_DAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
+const WEEK_DAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat" /* "Sabtu", "Minggu" */];
 const ACTIVE_DAYS = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat"];
 
 const DAY_CANONICAL = {
@@ -24,8 +24,8 @@ const DAY_CANONICAL = {
   rabu: "Rabu",
   kamis: "Kamis",
   jumat: "Jumat",
-  sabtu: "Sabtu",
-  minggu: "Minggu",
+  // sabtu: "Sabtu",
+  // minggu: "Minggu",
 };
 
 function parseJsonArrayText(value) {
@@ -172,7 +172,7 @@ function parseAttendanceData(payload) {
     sakit: Number(data?.sakit ?? data?.total_sakit ?? 0),
     alpha: Number(data?.alpha ?? data?.total_alpha ?? 0),
     percentage: Number(data?.persentase ?? data?.percentage ?? 0),
-    status: safeText(data?.status ?? data?.keterangan ?? "Memenuhi"),
+    status: safeText(data?.status ?? data?.keterangan ?? "-"),
   };
 }
 

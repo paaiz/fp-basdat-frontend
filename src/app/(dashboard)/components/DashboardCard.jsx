@@ -19,21 +19,11 @@ export function DashboardCard({ title, subtitle, action, children, className = "
   );
 }
 
-export function MetricCard({ label, value, hint, tone = "blue" }) {
-  const tones = {
-    blue: "from-sky-500 to-blue-600",
-    amber: "from-amber-500 to-orange-500",
-    emerald: "from-emerald-500 to-teal-500",
-    slate: "from-slate-700 to-slate-900",
-  };
-
+export function MetricCard({ label, value, hint, textColor = "text-slate-900" }) {
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
-      <div
-        className={`mb-3 h-1.5 w-16 rounded-full bg-gradient-to-r ${tones[tone] || tones.blue}`}
-      />
       <p className="text-sm font-medium text-slate-500">{label}</p>
-      <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">{value}</p>
+      <p className={`mt-2 text-3xl font-semibold tracking-tight ${textColor}`}>{value}</p>
       {hint ? <p className="mt-2 text-sm leading-6 text-slate-500">{hint}</p> : null}
     </div>
   );

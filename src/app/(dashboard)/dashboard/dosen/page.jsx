@@ -14,17 +14,24 @@ function getClassId(item, index = 0) {
 }
 
 function parseAttendanceData(payload) {
-  const data = asItem(payload) || payload || {};
-  const percentage = Number(data?.persentase ?? data?.percentage ?? 0);
-  const derivedStatus = percentage >= 75 ? "Memenuhi" : "Tidak Memenuhi";
+  const data = payload?.data ?? {};
+
+  const totalPertemuan = Number(data?.total_pertemuan ?? 0);
+  const hadir = Number(data?.jumlah_hadir ?? 0);
+
+  const percentage = totalPertemuan > 0 ? Math.round((hadir / totalPertemuan) * 100) : 0;
 
   return {
-    hadir: Number(data?.hadir ?? data?.total_hadir ?? data?.present ?? 0),
-    izin: Number(data?.izin ?? data?.total_izin ?? 0),
-    sakit: Number(data?.sakit ?? data?.total_sakit ?? 0),
-    alpha: Number(data?.alpha ?? data?.total_alpha ?? 0),
+    hadir,
+    izin: Number(data?.jumlah_izin ?? 0),
+    sakit: Number(data?.jumlah_sakit ?? 0),
+    alpha: Number(data?.jumlah_alpha ?? 0),
+
+    totalPertemuan,
+
     percentage,
-    status: safeText(data?.status ?? data?.keterangan ?? derivedStatus),
+
+    status: percentage >= 75 ? "Memenuhi" : "Tidak Memenuhi",
   };
 }
 
@@ -40,6 +47,8 @@ export default function DosenDashboardPage() {
   const [selectedClassId, setSelectedClassId] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [attendanceByClass, setAttendanceByClass] = useState({});
+  const [attendanceSessions, setAttendanceSessions] = useState({});
+  const [creatingSession, setCreatingSession] = useState(false);
 
   useEffect(() => {
     const currentAuth = getAuth();

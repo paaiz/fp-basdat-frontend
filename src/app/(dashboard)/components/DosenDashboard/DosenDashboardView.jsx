@@ -1,6 +1,17 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
+
+import {
+  initialPresensi,
+  toIsoDateTime,
+  postJson,
+  getJson,
+} from "@/app/(sandbox)/components/sandboxConfig";
+
+import { asList } from "@/app/(dashboard)/components/dashboardApi";
+
+import FormActions from "@/app/(sandbox)/components/FormActions";
 
 import {
   HiOutlineBookOpen,
@@ -29,6 +40,11 @@ import {
   normalizeTimeText,
   WEEK_DAYS,
 } from "@/lib/util";
+
+import { Field, Input } from "@/app/(sandbox)/components/FormFields";
+
+import Toast from "@/components/ui/Toast";
+import useTimedToast from "@/app/(sandbox)/components/useTimedToast";
 
 function getClassId(item, index = 0) {
   return String(item?.id ?? item?._id ?? `class-${index}`);
@@ -174,10 +190,53 @@ export default function DosenDashboardView({
   attendanceByClass,
   onLogout,
 }) {
+  const [presensi, setPresensi] = useState(initialPresensi());
+  const [presensiList, setPresensiList] = useState([]);
+  const [loadingPresensi, setLoadingPresensi] = useState(false);
+  const { toast, showToast, setToast } = useTimedToast();
+
   const currentProfile = profile || {};
   const displayName = safeText(currentProfile?.nama, "Dosen");
   const nip = safeText(currentProfile?.nip, "-");
   const fakultas = safeText(currentProfile?.fakultas || currentProfile?.jabatan, "F-ELECTICS");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    const idKelas = Number(selectedClassId);
+    const waktuDibuka = toIsoDateTime(presensi.waktu_dibuka);
+    const waktuDitutup = toIsoDateTime(presensi.waktu_ditutup);
+
+    if (!idKelas) return showToast("danger", "Validasi gagal", "Pilih kelas terlebih dahulu");
+    if (!waktuDibuka) return showToast("danger", "Validasi gagal", "Waktu dibuka wajib diisi");
+    if (!waktuDitutup) return showToast("danger", "Validasi gagal", "Waktu ditutup wajib diisi");
+    if (new Date(waktuDitutup).getTime() <= new Date(waktuDibuka).getTime()) {
+      return showToast("danger", "Validasi gagal", "Waktu ditutup harus setelah waktu dibuka");
+    }
+
+    setLoadingPresensi(true);
+    try {
+      const res = await postJson("/presensi", {
+        id_kelas: idKelas,
+        waktu_dibuka: waktuDibuka,
+        waktu_ditutup: waktuDitutup,
+      });
+      showToast(
+        "success",
+        "Presensi dibuat",
+        res?.message || "Berhasil menambahkan presensi session",
+      );
+      setPresensi(initialPresensi());
+
+      const refreshed = await getJson(`/presensi/by-kelas/${selectedClassId}`);
+
+      setPresensiList(asList(refreshed));
+    } catch (err) {
+      showToast("danger", "Gagal", err?.message || "Terjadi kesalahan");
+    } finally {
+      setLoadingPresensi(false);
+    }
+  };
 
   const selectedClassEntry = useMemo(() => {
     return (
@@ -186,6 +245,26 @@ export default function DosenDashboardView({
       null
     );
   }, [classes, selectedClassId]);
+
+  useEffect(() => {
+    if (!selectedClassId) return;
+
+    const loadPresensi = async () => {
+      try {
+        setLoadingPresensi(true);
+
+        const res = await getJson(`/presensi/by-kelas/${selectedClassId}`);
+
+        setPresensiList(asList(res));
+      } catch (err) {
+        setPresensiList([]);
+      } finally {
+        setLoadingPresensi(false);
+      }
+    };
+
+    loadPresensi();
+  }, [selectedClassId]);
 
   const selectedClassAttendance = attendanceByClass[selectedClassId]?.rows || [];
 
@@ -401,6 +480,105 @@ export default function DosenDashboardView({
             hint="Rata-rata kehadiran untuk kelas terpilih."
           />
         </section>
+
+        <DashboardCard
+          title={`Buat Presensi Kelas - ${safeText(selectedClassEntry?.nama_kelas, "-")} (${selectedClassBadge})`}
+          subtitle="Kelola sesi presensi untuk kelas yang sedang dipilih."
+        >
+          <Toast
+            open={!!toast}
+            variant={toast?.variant}
+            title={toast?.title}
+            message={toast?.message}
+            onClose={() => setToast(null)}
+          />
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Waktu Dibuka" hint="Format lokal lalu dikirim sebagai ISO">
+                <Input
+                  type="datetime-local"
+                  value={presensi.waktu_dibuka}
+                  onChange={(e) => setPresensi({ ...presensi, waktu_dibuka: e.target.value })}
+                />
+              </Field>
+
+              <Field label="Waktu Ditutup" hint="Harus setelah waktu dibuka">
+                <Input
+                  type="datetime-local"
+                  value={presensi.waktu_ditutup}
+                  onChange={(e) => setPresensi({ ...presensi, waktu_ditutup: e.target.value })}
+                />
+              </Field>
+            </div>
+
+            <FormActions
+              submitLabel="Buat Presensi"
+              loading={loading}
+              onReset={() => setPresensi(initialPresensi())}
+            />
+          </form>
+        </DashboardCard>
+
+        <DashboardCard
+          title={`Daftar Presensi - ${safeText(selectedClassEntry?.nama_kelas, "-")}`}
+          subtitle="Riwayat sesi presensi yang pernah dibuat."
+        >
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead>
+                <tr>
+                  <th className="px-4 py-3 text-left">ID</th>
+                  <th className="px-4 py-3 text-left">Dibuka</th>
+                  <th className="px-4 py-3 text-left">Ditutup</th>
+                  <th className="px-4 py-3 text-left">Status</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {loadingPresensi ? (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-6 text-center">
+                      Memuat data...
+                    </td>
+                  </tr>
+                ) : presensiList.length ? (
+                  presensiList.map((item) => {
+                    const aktif = new Date(item.waktu_ditutup) > new Date();
+
+                    return (
+                      <tr key={item.id}>
+                        <td className="px-4 py-3">{item.id}</td>
+
+                        <td className="px-4 py-3">
+                          {new Date(item.waktu_dibuka).toLocaleString()}
+                        </td>
+
+                        <td className="px-4 py-3">
+                          {new Date(item.waktu_ditutup).toLocaleString()}
+                        </td>
+
+                        <td className="px-4 py-3">
+                          {aktif ? (
+                            <span className="text-green-600">Aktif</span>
+                          ) : (
+                            <span className="text-red-600">Ditutup</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-6 text-center text-slate-500">
+                      Belum ada sesi presensi.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </DashboardCard>
 
         <DashboardCard
           title={`Rekap Kehadiran Mahasiswa - ${safeText(selectedClassEntry?.nama_kelas, "-")} (${selectedClassBadge})`}

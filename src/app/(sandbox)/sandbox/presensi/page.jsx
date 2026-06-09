@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Toast from "@/components/ui/Toast";
 import EntityTableCard from "../../components/EntityTableCard";
 import FormActions from "../../components/FormActions";
@@ -13,13 +13,28 @@ import {
   parseInteger,
   postJson,
   toIsoDateTime,
+  getJson,
 } from "../../components/sandboxConfig";
 
 export default function PresensiCreatePage() {
   const [presensi, setPresensi] = useState(initialPresensi());
   const [refreshKey, setRefreshKey] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [kelasList, setKelasList] = useState([]);
   const { toast, showToast, setToast } = useTimedToast();
+
+  useEffect(() => {
+    const loadKelas = async () => {
+      try {
+        const res = await getJson("/kelas");
+        setKelasList(res?.data || []);
+      } catch (err) {
+        console.error("Gagal mengambil data kelas", err);
+      }
+    };
+
+    loadKelas();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -76,13 +91,25 @@ export default function PresensiCreatePage() {
       <SectionCard title="Create Presensi Session" description="POST /api/presensi">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-1">
-            <Field label="ID Kelas">
-              <Input
-                type="number"
+            <Field label="Kelas">
+              <select
                 value={presensi.id_kelas}
-                onChange={(e) => setPresensi({ ...presensi, id_kelas: e.target.value })}
-                placeholder="1"
-              />
+                onChange={(e) =>
+                  setPresensi({
+                    ...presensi,
+                    id_kelas: e.target.value,
+                  })
+                }
+                className="h-11 w-full rounded-lg border border-slate-300 px-3 text-sm outline-none focus:border-blue-500"
+              >
+                <option value="">Pilih Kelas</option>
+
+                {kelasList.map((kelas) => (
+                  <option key={kelas.id} value={kelas.id}>
+                    {kelas.kode_kelas} - {kelas.nama_kelas}
+                  </option>
+                ))}
+              </select>
             </Field>
           </div>
 

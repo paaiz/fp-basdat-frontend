@@ -8,6 +8,7 @@ import {
   HiOutlineClock,
   HiOutlineMapPin,
   HiOutlineUser,
+  HiOutlineDocumentText,
 } from "react-icons/hi2";
 
 import {
@@ -25,8 +26,9 @@ import { SectionHeader } from "@/app/(dashboard)/components/DashboardCard";
 import { asItem, asList, getJson } from "@/app/(dashboard)/components/dashboardApi";
 import { safeText, toShortName } from "@/app/(dashboard)/components/dashboardFormat";
 
-import MahasiswaAttendanceTab from "@/app/(dashboard)/components/KehadiranMahasiswa/MahasiswaAttendanceTab";
-import MahasiswaFinanceTab from "@/app/(dashboard)/components/KeuanganMahasiswa/MahasiswaFinanceTab";
+import MahasiswaAttendanceTab from "@/app/(dashboard)/components/TabMahasiswa/MahasiswaAttendanceTab";
+import MahasiswaFinanceTab from "@/app/(dashboard)/components/TabMahasiswa/MahasiswaFinanceTab";
+import MahasiswaPresence from "@/app/(dashboard)/components/TabMahasiswa/MahasiswaPresence";
 
 function resolveLecturerName(classItem, dosenMap) {
   const directName = classItem?.nama_dosen || classItem?.dosen?.nama;
@@ -109,14 +111,24 @@ function normalizeScheduleEntries(classItem, dosenMap) {
 }
 
 function parseAttendanceData(payload) {
-  const data = asItem(payload) || {};
+  const data = payload?.data ?? {};
+
+  const totalPertemuan = Number(data?.total_pertemuan ?? 0);
+  const hadir = Number(data?.jumlah_hadir ?? 0);
+
+  const percentage = totalPertemuan > 0 ? Math.round((hadir / totalPertemuan) * 100) : 0;
+
   return {
-    hadir: Number(data?.hadir ?? data?.total_hadir ?? data?.present ?? 0),
-    izin: Number(data?.izin ?? data?.total_izin ?? 0),
-    sakit: Number(data?.sakit ?? data?.total_sakit ?? 0),
-    alpha: Number(data?.alpha ?? data?.total_alpha ?? 0),
-    percentage: Number(data?.persentase ?? data?.percentage ?? 0),
-    status: safeText(data?.status ?? data?.keterangan ?? "-"),
+    hadir,
+    izin: Number(data?.jumlah_izin ?? 0),
+    sakit: Number(data?.jumlah_sakit ?? 0),
+    alpha: Number(data?.jumlah_alpha ?? 0),
+
+    totalPertemuan,
+
+    percentage,
+
+    status: percentage >= 75 ? "Memenuhi" : "Tidak Memenuhi",
   };
 }
 
@@ -130,6 +142,7 @@ export default function MahasiswaDashboardPage() {
   const [classes, setClasses] = useState([]);
   const [dosenMap, setDosenMap] = useState({});
   const [attendance, setAttendance] = useState([]);
+  const [activePresensi, setActivePresensi] = useState([]);
   const [uktHistory, setUktHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -211,6 +224,41 @@ export default function MahasiswaDashboardPage() {
       setUktHistory(
         uktResult.status === "fulfilled" ? sortBySemesterDesc(asList(uktResult.value)) : [],
       );
+
+      const presensiResults = await Promise.allSettled(
+        mergedClasses.map((kelas) => getJson(`/presensi/by-kelas/${kelas.id}`)),
+      );
+
+      const now = new Date();
+
+      const activeSessions = [];
+
+      presensiResults.forEach((result, index) => {
+        if (result.status !== "fulfilled") return;
+
+        const sessions = asList(result.value);
+
+        const sortedSessions = [...sessions].sort(
+          (a, b) => new Date(a.waktu_dibuka).getTime() - new Date(b.waktu_dibuka).getTime(),
+        );
+
+        sortedSessions.forEach((session, sessionIndex) => {
+          const opened = new Date(session.waktu_dibuka);
+          const closed = new Date(session.waktu_ditutup);
+
+          if (now >= opened && now <= closed) {
+            activeSessions.push({
+              ...session,
+              nama_kelas: mergedClasses[index]?.nama_kelas,
+              kode_kelas: mergedClasses[index]?.kode_kelas,
+
+              pertemuan: sessionIndex + 1,
+            });
+          }
+        });
+      });
+
+      setActivePresensi(activeSessions);
 
       const attendanceResults = await Promise.allSettled(
         classIds.map((classId) =>
@@ -415,6 +463,16 @@ export default function MahasiswaDashboardPage() {
           </button>
           <button
             type="button"
+            onClick={() => setActiveTab("presensi")}
+            className={`flex h-12 items-center gap-2 rounded-[10px] px-6 text-[16px] font-medium shadow-[0px_4px_3px_rgba(0,0,0,0.1),0px_2px_2px_rgba(0,0,0,0.1)] transition ${
+              activeTab === "presensi" ? "bg-[#155dfc] text-white" : "bg-white text-[#364153]"
+            }`}
+          >
+            <HiOutlineDocumentText className="h-5 w-5" />
+            Presensi
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab("keuangan")}
             className={`flex h-12 items-center gap-2 rounded-[10px] px-6 text-[16px] font-medium shadow-[0px_4px_3px_rgba(0,0,0,0.1),0px_2px_2px_rgba(0,0,0,0.1)] transition ${
               activeTab === "keuangan" ? "bg-[#155dfc] text-white" : "bg-white text-[#364153]"
@@ -425,13 +483,19 @@ export default function MahasiswaDashboardPage() {
           </button>
         </div>
 
-        {activeTab === "kehadiran" ? (
+        {activeTab === "kehadiran" && (
           <MahasiswaAttendanceTab
             semesterText={semesterText}
             loading={loading}
             attendance={attendance}
           />
-        ) : (
+        )}
+
+        {activeTab === "presensi" && (
+          <MahasiswaPresence loading={loading} sessions={activePresensi} mahasiswaId={auth?.id} />
+        )}
+
+        {activeTab === "keuangan" && (
           <MahasiswaFinanceTab loading={loading} uktHistory={uktHistory} />
         )}
       </div>
